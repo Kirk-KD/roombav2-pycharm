@@ -20,7 +20,12 @@ class Simulation:
         self.robot.update()
         self.robot.draw()
 
-        pg.display.set_caption(f"FPS: {self.clock.get_fps()} | Points: {len(self.robot.scanner.points_index.points)}")
+        fps = round(self.clock.get_fps(), 2)
+        points = len(self.robot.scanner.points_index.points)
+        lines = len(self.robot.scanner.result_lines)
+        pg.display.set_caption(f"FPS: {fps} | "
+                               f"Points: {points} | "
+                               f"Lines: {lines}")
 
     def __events(self) -> None:
         for event in pg.event.get():

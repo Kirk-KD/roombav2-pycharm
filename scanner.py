@@ -101,16 +101,17 @@ class PointsIndex:
     def get(self, x: float, y: float):
         return list(self.index.intersection((x, y, x, y), objects=True))[0].object
 
-    def get_closest(self, x: float, y: float, exclude_self: bool = False):
+    def get_closest(self, x: float, y: float, exclude_self: bool = False) -> Point | None:
         points = self.index.nearest((x, y, x, y), objects=True, num_results=2)
 
         filtered = filter(lambda p: exclude_self is False or p.object.x != x or p.object.y != y, points)
         n = next(filtered, None)
-        return n.object if n is not None else n
+        return n.object if n is not None else None
 
-    def get_closest_except(self, x: float, y: float, ignored: List[Point]):
+    def get_closest_except(self, x: float, y: float, ignored: List[Point]) -> Point | None:
         points = self.index.nearest((x, y, x, y), objects=True, num_results=len(ignored) + 1)
-        return next(filter(lambda p: p.object not in ignored, points)).object
+        n = next(filter(lambda p: p.object not in ignored, points), None)
+        return n.object if n is not None else None
 
 
 class LinesIndex:
@@ -164,7 +165,7 @@ class Scanner:
         self.result_lines: List[Line] = []
         self.points_index: PointsIndex = PointsIndex()
 
-    def closest_point_on_line(self, point: Point):
+    def closest_point_on_line(self, point: Point) -> Tuple[float, Point]:
         return min([line.distance_to_point(point) for line in self.result_lines], key=lambda x: x[0])
 
     def scan(self) -> None:
@@ -178,9 +179,13 @@ class Scanner:
                 continue
             x, y = xy
 
-            point = Point(x, y)  # create the point
-            closest = self.points_index.get_closest(x, y)  # get the closest point
-            if closest and distance(*closest.position, x, y) <= 7:  # if the point is too close to an existing line
+            point = Point(x, y)
+            if len(self.result_lines):
+                closest = self.closest_point_on_line(point)[0]
+            else:
+                closest_point = self.points_index.get_closest(x, y)
+                closest = distance(*closest_point.position, x, y) if closest_point else None
+            if closest is not None and closest <= 7:
                 continue
             self.points_index.add(point)
 
@@ -195,14 +200,15 @@ class Scanner:
 
         updated_lines = []
         current_line = None
-        for i in range(len(self.result_lines)):
+        for i in range(len(self.result_lines)):  # TODO find closest line instead of random
             line = self.result_lines[i]
 
             if current_line is None:
                 current_line = line
                 continue
 
-            if abs(line.radians - current_line.radians) <= math.radians(5) and line.distance(current_line) <= 10:
+            if (180 - abs(abs(math.degrees(line.radians) - math.degrees(current_line.radians)) - 180) <= 10 and
+                    line.distance(current_line) <= 10):
                 current_line = current_line.join(line)
             else:
                 updated_lines.append(current_line)
